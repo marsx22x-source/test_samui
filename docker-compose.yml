@@ -54,7 +54,8 @@ services:
       DOMAIN: ${DOMAIN}
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/templates:/etc/nginx/templates:ro
+      # NGINX_TEMPLATE=-ip в .env подключает HTTP-шаблон для работы без домена
+      - ./nginx/templates${NGINX_TEMPLATE:-}:/etc/nginx/templates:ro
       - ./docker-data/certbot:/var/www/certbot
       - ./docker-data/letsencrypt:/etc/letsencrypt:ro
     depends_on:

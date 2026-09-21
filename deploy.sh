@@ -53,10 +53,17 @@ wait_for_app() {
   return 1
 }
 
-# --- Первый запуск с выпуском SSL ---
+# --- Первый запуск ---
 if [ "$INIT" = "1" ]; then
-  echo "=== Первичная установка (Let's Encrypt + Docker) ==="
-  bash ./init-letsencrypt.sh
+  IP_MODE=$( (grep -E '^NGINX_TEMPLATE=' .env || true) | head -1 | cut -d= -f2- | sed "s/[\r\"' ]//g")
+  if [ "$IP_MODE" = "-ip" ]; then
+    echo "=== Первичная установка в режиме без домена (работа по IP, SSL пропускается) ==="
+    $DC build
+    $DC up -d
+  else
+    echo "=== Первичная установка (Let's Encrypt + Docker) ==="
+    bash ./init-letsencrypt.sh
+  fi
 
   echo ""
   echo "=== Создание администратора (переменные SEED_* в .env) ==="
@@ -70,8 +77,9 @@ if [ "$INIT" = "1" ]; then
   fi
   $DC ps
   echo ""
-  echo "Вход в CRM: https://$( (grep -E '^DOMAIN=' .env || true) | head -1 | cut -d= -f2- | sed "s/[\r\"']//g")/login"
-  echo "Логин: ${SEED_ADMIN_EMAIL:-admin@example.com} (пароль из SEED_ADMIN_PASSWORD в .env)"
+  APP_URL=$( (grep -E '^NEXTAUTH_URL=' .env || true) | head -1 | cut -d= -f2- | sed "s/[\r\"']//g")
+  echo "Вход в CRM: ${APP_URL:-http://localhost:3000}/login"
+  echo "Логин: ${SEED_EMAIL:-admin@example.com} (пароль из SEED_ADMIN_PASSWORD в .env)"
   exit 0
 fi
 
