@@ -1,0 +1,116 @@
+// Prisma Schema — аренда недвижимости (витрина + CRM)
+// Роли: ADMIN (полный доступ) и OWNER (только свои объекты)
+
+generator client {
+  provider      = "prisma-client-js"
+  // native — для локальной разработки; linux-musl — для node:20-alpine в Docker
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  OWNER
+}
+
+enum LeadStatus {
+  NEW
+  IN_PROGRESS
+  CONFIRMED
+  REJECTED
+}
+
+// BOOKED — дата занята бронью (подтверждённая заявка)
+// BLOCKED — дата перекрыта вручную (владельцем/админом)
+enum DayStatus {
+  BOOKED
+  BLOCKED
+}
+
+model User {
+  id             String     @id @default(cuid())
+  email          String     @unique
+  passwordHash   String
+  name           String
+  role           Role       @default(OWNER)
+  telegramChatId String? // личный chat_id владельца для уведомлений
+  whatsappPhone  String? // телефон владельца для WhatsApp-уведомлений
+  createdAt      DateTime   @default(now())
+  properties     Property[]
+}
+
+model Property {
+  id            String           @id @default(cuid())
+  title         String
+  slug          String           @unique
+  description   String
+  pricePerNight Int // цена за ночь в рублях
+  propertyType  String // Апартаменты / Дом / Вилла / Студия ...
+  location      String // город / район (для фильтра)
+  address       String
+  maxGuests     Int
+  bedrooms      Int
+  area          Int? // м²
+  amenities     String[] // Wi-Fi, Бассейн, ...
+  isPublished   Boolean          @default(true)
+  ownerId       String
+  owner         User             @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  images        PropertyImage[]
+  calendarDays  CalendarDay[]
+  leads         Lead[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([ownerId])
+  @@index([location])
+  @@index([isPublished])
+}
+
+model PropertyImage {
+  id         String   @id @default(cuid())
+  url        String // /api/files/<uuid>.jpg
+  sortOrder  Int      @default(0)
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+}
+
+// Каждая строка = «день занят». Нет строки = день свободен.
+model CalendarDay {
+  id         String     @id @default(cuid())
+  propertyId String
+  property   Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  date       DateTime   @db.Date
+  status     DayStatus
+  leadId     String? // ссылка на бронь, если день закрыт подтверждённой заявкой
+  lead       Lead?      @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@unique([propertyId, date])
+  @@index([leadId])
+}
+
+model Lead {
+  id         String     @id @default(cuid())
+  propertyId String
+  property   Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  guestName  String
+  guestPhone String
+  messenger  String? // Telegram / WhatsApp / Звонок
+  dateFrom   DateTime   @db.Date
+  dateTo     DateTime   @db.Date
+  guests     Int
+  comment    String?
+  status     LeadStatus @default(NEW)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  closedDays CalendarDay[]
+
+  @@index([propertyId])
+  @@index([status])
+  @@index([createdAt])
+}
