@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { Users, BedDouble, Ruler, MapPin, Wifi, Check } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
+import { computeAvailability } from '@/lib/availability';
+import { AvailabilityBadge } from '@/components/availability-badge';
 import { SiteHeader } from '@/components/site-header';
 import { ImageGallery } from '@/components/image-gallery';
 import { BookingForm } from '@/components/booking-form';
@@ -121,6 +123,9 @@ export default async function PropertyPage({ params }: { params: Promise<{ slug:
                 <p className="text-sm text-muted-foreground">
                   {formatPrice(property.pricePerNight)} ₽ / ночь · выберите даты в календаре
                 </p>
+                <div className="pt-1">
+                  <AvailabilityBadge availability={computeAvailability(new Set(Object.keys(occupied)))} />
+                </div>
               </CardHeader>
               <CardContent>
                 <BookingForm

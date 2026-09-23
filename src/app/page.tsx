@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { PROPERTY_TYPES } from '@/lib/constants';
-import { isIsoDate } from '@/lib/dates';
+import { isIsoDate, toISODate } from '@/lib/dates';
+import { computeAvailability, AVAILABILITY_HORIZON_DAYS } from '@/lib/availability';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,6 +72,34 @@ export default async function CatalogPage({
       distinct: ['location'],
     }),
   ]);
+
+  // Занятость на ближайший горизонт — для индикаторов «Свободно» на карточках
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const horizonStart = new Date(`${todayIso}T00:00:00.000Z`);
+  const horizonEnd = new Date(horizonStart.getTime() + AVAILABILITY_HORIZON_DAYS * 86_400_000);
+
+  const busyRows =
+    properties.length > 0
+      ? await prisma.calendarDay.findMany({
+          where: {
+            propertyId: { in: properties.map((p) => p.id) },
+            date: { gte: horizonStart, lte: horizonEnd },
+          },
+          select: { propertyId: true, date: true },
+        })
+      : [];
+
+  const busyByProperty = new Map<string, Set<string>>();
+  for (const row of busyRows) {
+    let set = busyByProperty.get(row.propertyId);
+    if (!set) {
+      set = new Set();
+      busyByProperty.set(row.propertyId, set);
+    }
+    set.add(toISODate(row.date));
+  }
+
+  const isNewThreshold = Date.now() - 14 * 86_400_000;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -199,7 +228,11 @@ export default async function CatalogPage({
                     pricePerNight: p.pricePerNight,
                     maxGuests: p.maxGuests,
                     bedrooms: p.bedrooms,
+                    area: p.area,
+                    amenities: p.amenities,
                     coverUrl: p.images[0]?.url ?? null,
+                    isNew: p.createdAt.getTime() > isNewThreshold,
+                    availability: computeAvailability(busyByProperty.get(p.id) ?? new Set()),
                   }}
                 />
               ))}
