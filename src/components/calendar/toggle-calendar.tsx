@@ -13,9 +13,15 @@ import { CalendarMonth, type DayStatus } from './calendar-month';
 export function ToggleCalendar({
   propertyId,
   initialOccupied,
+  dayTitles,
+  initialYear,
+  initialMonth,
 }: {
   propertyId: string;
   initialOccupied: Record<string, DayStatus>;
+  dayTitles?: Record<string, string>;
+  initialYear?: number;
+  initialMonth?: number;
 }) {
   const [occupied, setOccupied] = React.useState(initialOccupied);
   const [error, setError] = React.useState<string | null>(null);
@@ -23,8 +29,8 @@ export function ToggleCalendar({
 
   const now = new Date();
   const [view, setView] = React.useState(() => ({
-    year: now.getUTCFullYear(),
-    month: now.getUTCMonth(),
+    year: initialYear ?? now.getUTCFullYear(),
+    month: initialMonth ?? now.getUTCMonth(),
   }));
   const [direction, setDirection] = React.useState<1 | -1>(1);
 
@@ -86,6 +92,7 @@ export function ToggleCalendar({
           occupied={occupied}
           onDayClick={handleDay}
           direction={direction}
+          dayTitles={dayTitles}
           disablePast
           onPrev={goPrev}
           onNext={goNext}

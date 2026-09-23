@@ -24,6 +24,8 @@ type Props = {
   onNext?: () => void;
   /** Направление последнего перехода: 1 — вперёд, -1 — назад (для слайда) */
   direction?: 1 | -1;
+  /** Подсказки при наведении на день: iso -> текст (например, имя гостя брони) */
+  dayTitles?: Record<string, string>;
   /** Запретить выбор дат в прошлом */
   disablePast?: boolean;
   /** Подсветить «сегодня» */
@@ -39,6 +41,7 @@ export function CalendarMonth({
   onPrev,
   onNext,
   direction = 1,
+  dayTitles,
   disablePast = false,
   showToday = true,
 }: Props) {
@@ -98,6 +101,7 @@ export function CalendarMonth({
               type="button"
               onClick={onDayClick ? () => onDayClick(iso) : undefined}
               disabled={dayDisabled}
+              title={dayTitles?.[iso]}
               className={cn(
                 'relative flex h-10 items-center justify-center rounded-md text-sm transition-all duration-150 sm:h-11',
                 !occ && !selFrom && !selTo && !inRange && 'hover:scale-[1.08] hover:bg-accent hover:shadow-sm',

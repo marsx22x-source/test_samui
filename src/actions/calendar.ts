@@ -85,6 +85,48 @@ export async function blockRangeAction(
   return { ok: true };
 }
 
+/**
+ * Освобождение диапазона дат (админ; владелец — только свой объект).
+ * Подтверждённые брони (дни со ссылкой на Lead) не трогаются.
+ */
+export async function unblockRangeAction(
+  propertyId: string,
+  fromIso: string,
+  toIso: string,
+): Promise<{ ok: boolean; removed?: number; error?: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: 'Требуется авторизация' };
+  if (!isIsoDate(fromIso) || !isIsoDate(toIso) || fromIso >= toIso) {
+    return { ok: false, error: 'Проверьте даты диапазона' };
+  }
+  if (nightsBetween(fromIso, toIso) > 366) {
+    return { ok: false, error: 'Максимальная длина диапазона — 366 дней' };
+  }
+
+  const property = await prisma.property.findUnique({
+    where: { id: propertyId },
+    select: { id: true, slug: true, ownerId: true },
+  });
+  if (!property) return { ok: false, error: 'Объект не найден' };
+  if (user.role === 'OWNER' && property.ownerId !== user.id) {
+    return { ok: false, error: 'Нет доступа к этому объекту' };
+  }
+
+  const res = await prisma.calendarDay.deleteMany({
+    where: {
+      propertyId,
+      date: {
+        gte: new Date(`${fromIso}T00:00:00.000Z`),
+        lte: new Date(`${toIso}T00:00:00.000Z`),
+      },
+      leadId: null, // только ручные перекрытия, не брони
+    },
+  });
+
+  revalidateCalendar(property.slug);
+  return { ok: true, removed: res.count };
+}
+
 function revalidateCalendar(propertySlug: string) {
   revalidatePath('/');
   revalidatePath(`/property/${propertySlug}`);
