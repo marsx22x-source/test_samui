@@ -20,9 +20,9 @@ export const ADMIN_LINKS: CrmLink[] = [
   { href: '/admin/owners', label: 'Владельцы', icon: Users },
 ];
 
+// Владелец управляет только календарём занятости — заявки видит исключительно админ
 export const OWNER_LINKS: CrmLink[] = [
   { href: '/owner', label: 'Мои объекты', icon: Building2 },
-  { href: '/owner/leads', label: 'Заявки', icon: Inbox },
 ];
 
 function initials(name: string): string {

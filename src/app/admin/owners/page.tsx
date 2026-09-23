@@ -24,7 +24,9 @@ export default async function AdminOwnersPage() {
         <CardHeader>
           <CardTitle>Создать владельца</CardTitle>
           <CardDescription>
-            Email и пароль — для входа в CRM. Telegram chat_id и WhatsApp телефон — для мгновенных уведомлений о заявках.
+            Email и пароль — для входа в CRM. Владелец управляет только календарём
+            занятости; Telegram chat_id и WhatsApp телефон — контактные данные
+            (зарезервированы на будущее).
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -15,7 +15,8 @@ async function main() {
 
   const admin = await prisma.user.upsert({
     where: { email },
-    update: {},
+    // при повторном запуске — обновляем пароль и имя из SEED_ADMIN_*
+    update: { passwordHash: await bcrypt.hash(password, 10), name },
     create: {
       email,
       name,

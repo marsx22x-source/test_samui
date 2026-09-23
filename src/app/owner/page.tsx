@@ -21,7 +21,6 @@ export default async function OwnerPropertiesPage() {
     include: {
       images: { orderBy: { sortOrder: 'asc' }, take: 1 },
       calendarDays: { where: { date: { gte: new Date(todayIso + 'T00:00:00.000Z') } }, select: { date: true } },
-      _count: { select: { leads: true } },
     },
   });
 
@@ -65,7 +64,7 @@ export default async function OwnerPropertiesPage() {
                     </p>
                     <p className="mt-0.5 text-sm text-muted-foreground">
                       <MapPin className="mr-1 inline h-3.5 w-3.5" />
-                      {p.location} · {formatPrice(p.pricePerNight)} ₽/ночь · заявок: {p._count.leads} · занято в 30 дн.: {busy}
+                      {p.location} · {formatPrice(p.pricePerNight)} ₽/ночь · занято в 30 дн.: {busy}
                     </p>
                   </div>
                   <Button asChild size="sm">

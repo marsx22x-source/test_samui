@@ -52,7 +52,6 @@ export async function updateLeadStatusAction(leadId: string, status: string): Pr
   revalidatePath('/admin/leads');
   revalidatePath('/admin');
   revalidatePath('/admin/calendar');
-  revalidatePath('/owner/leads');
   revalidatePath('/owner');
   revalidatePath(`/property/${lead.property.slug}`);
   return { ok: true };
@@ -75,6 +74,6 @@ export async function deleteLeadAction(leadId: string): Promise<{ ok: boolean; e
 
   revalidatePath('/admin/leads');
   revalidatePath('/admin');
-  revalidatePath('/owner/leads');
+  revalidatePath('/owner');
   return { ok: true };
 }

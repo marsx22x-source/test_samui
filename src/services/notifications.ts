@@ -30,21 +30,14 @@ export type NewLeadPayload = {
     id: string;
     title: string;
     slug: string;
-    owner: {
-      id: string;
-      name: string;
-      email: string;
-      telegramChatId: string | null;
-      whatsappPhone: string | null;
-    } | null;
   };
 };
 
-function buildText(lead: NewLeadPayload, forOwner: boolean): string {
+function buildText(lead: NewLeadPayload): string {
   const from = toISODate(lead.dateFrom);
   const to = toISODate(lead.dateTo);
   const lines = [
-    forOwner ? '🔔 Новая заявка на ваш объект' : '🔔 Новая заявка с сайта',
+    '🔔 Новая заявка с сайта',
     '',
     `🏠 Объект: ${lead.property.title}`,
     `👤 Гость: ${lead.guestName}`,
@@ -186,8 +179,8 @@ export async function sendEmail(to: string, subject: string, text: string): Prom
 // ---------------------------------------------------- Рассылка по новой заявке
 
 export async function notifyNewLead(lead: NewLeadPayload): Promise<void> {
-  const adminText = buildText(lead, false);
-  const ownerText = buildText(lead, true);
+  // Заявки видит и обрабатывает только администратор (владелец управляет календарём)
+  const text = buildText(lead);
 
   // Получатели-админы: env-чат + все пользователи с ролью ADMIN
   let adminChatIds: string[] = [];
@@ -211,40 +204,19 @@ export async function notifyNewLead(lead: NewLeadPayload): Promise<void> {
   }
   const adminWaPhone = process.env.WHATSAPP_ADMIN_PHONE || '';
 
-  const owner = lead.property.owner;
-  const ownerWaPhone = owner?.whatsappPhone || '';
-
   const jobs: Array<{ channel: string; run: () => Promise<void> }> = [];
 
   // --- уведомления администраторам
   for (const chatId of new Set(adminChatIds)) {
-    jobs.push({ channel: `telegram:${chatId}`, run: () => sendTelegram(chatId, adminText) });
+    jobs.push({ channel: `telegram:${chatId}`, run: () => sendTelegram(chatId, text) });
   }
   if (adminWaPhone) {
-    jobs.push({ channel: 'whatsapp:admins', run: () => sendWhatsApp(adminWaPhone, adminText) });
+    jobs.push({ channel: 'whatsapp:admins', run: () => sendWhatsApp(adminWaPhone, text) });
   }
   for (const email of new Set(adminEmails)) {
     jobs.push({
       channel: `email:${email}`,
-      run: () => sendEmail(email, `Новая заявка — ${lead.property.title}`, adminText),
-    });
-  }
-
-  // --- уведомления владельцу объекта
-  if (owner) {
-    if (owner.telegramChatId) {
-      const ownerChatId = owner.telegramChatId;
-      jobs.push({
-        channel: `telegram:${ownerChatId}`,
-        run: () => sendTelegram(ownerChatId, ownerText),
-      });
-    }
-    if (ownerWaPhone) {
-      jobs.push({ channel: 'whatsapp:owner', run: () => sendWhatsApp(ownerWaPhone, ownerText) });
-    }
-    jobs.push({
-      channel: `email:${owner.email}`,
-      run: () => sendEmail(owner.email, `Новая заявка на «${lead.property.title}»`, ownerText),
+      run: () => sendEmail(email, `Новая заявка — ${lead.property.title}`, text),
     });
   }
 

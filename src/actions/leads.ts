@@ -55,7 +55,6 @@ export async function createLeadAction(
 
   const property = await prisma.property.findUnique({
     where: { id: data.propertyId },
-    include: { owner: true },
   });
   if (!property || !property.isPublished) {
     return { status: 'error', message: 'Объект не найден или недоступен для бронирования' };
@@ -88,15 +87,6 @@ export async function createLeadAction(
       id: property.id,
       title: property.title,
       slug: property.slug,
-      owner: property.owner
-        ? {
-            id: property.owner.id,
-            name: property.owner.name,
-            email: property.owner.email,
-            telegramChatId: property.owner.telegramChatId,
-            whatsappPhone: property.owner.whatsappPhone,
-          }
-        : null,
     },
   }).catch((e) => console.error('[createLead] notify error:', e));
 
