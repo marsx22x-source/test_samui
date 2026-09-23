@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { MESSENGERS } from '@/lib/constants';
 import { formatRuDate, nightsBetween } from '@/lib/dates';
 import { popIn } from '@/lib/motion';
+import { formatPrice } from '@/lib/utils';
 import type { DayStatus } from '@/components/calendar/calendar-month';
 
 const initial: LeadFormState = { status: 'idle' };
@@ -23,15 +24,27 @@ export function BookingForm({
   propertyId,
   occupied,
   maxGuests,
+  pricePerNight,
+  minNights = 1,
+  deposit,
+  checkInTime,
+  checkOutTime,
 }: {
   propertyId: string;
   occupied: Record<string, DayStatus>;
   maxGuests: number;
+  pricePerNight: number;
+  minNights?: number;
+  deposit?: number | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
 }) {
   const [state, formAction] = useFormState(createLeadAction, initial);
   const [selection, setSelection] = React.useState<{ from?: string; to?: string }>({});
 
   const nights = selection.from && selection.to ? nightsBetween(selection.from, selection.to) : 0;
+  const tooShort = nights > 0 && nights < minNights;
+  const total = nights > 0 ? nights * pricePerNight : 0;
 
   return (
     <AnimatePresence mode="wait" initial={false}>
@@ -75,6 +88,35 @@ export function BookingForm({
                 ? `Заезд: ${formatRuDate(selection.from)}${selection.to ? ` — выезд: ${formatRuDate(selection.to)}` : ' — выберите дату выезда'}`
                 : 'Нажмите на свободную дату заезда'}
             </p>
+
+            {/* Итоговая стоимость */}
+            {nights > 0 && !tooShort && (
+              <div key={total} className="mt-2 animate-fade-in rounded-md border border-primary/20 bg-primary/5 px-3 py-2.5 text-sm">
+                <p className="flex items-baseline justify-between">
+                  <span className="text-muted-foreground">
+                    {formatPrice(pricePerNight)} ₽ × {nights} ноч.
+                  </span>
+                  <span className="text-base font-bold text-primary">{formatPrice(total)} ₽</span>
+                </p>
+                {deposit ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    + залог {formatPrice(deposit)} ₽ при заезде (возвращается при выезде)
+                  </p>
+                ) : null}
+                {(checkInTime || checkOutTime) && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {checkInTime ? `Заезд с ${checkInTime}` : ''}
+                    {checkInTime && checkOutTime ? ' · ' : ''}
+                    {checkOutTime ? `выезд до ${checkOutTime}` : ''}
+                  </p>
+                )}
+              </div>
+            )}
+            {tooShort && (
+              <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                Минимальный срок проживания — {minNights} ноч. Выберите более длинный период.
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -117,7 +159,7 @@ export function BookingForm({
             <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive">{state.message}</p>
           )}
 
-          <Button type="submit" size="lg" className="w-full" disabled={!selection.from || !selection.to}>
+          <Button type="submit" size="lg" className="w-full" disabled={!selection.from || !selection.to || tooShort}>
             <Send className="h-4 w-4" /> Отправить заявку
           </Button>
           <p className="text-center text-xs text-muted-foreground">

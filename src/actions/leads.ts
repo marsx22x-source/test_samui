@@ -60,6 +60,11 @@ export async function createLeadAction(
     return { status: 'error', message: 'Объект не найден или недоступен для бронирования' };
   }
 
+  const nights = nightsBetween(data.dateFrom, data.dateTo);
+  if (nights < property.minNights) {
+    return { status: 'error', message: `Минимальный срок проживания — ${property.minNights} ноч.` };
+  }
+
   const lead = await prisma.lead.create({
     data: {
       propertyId: property.id,

@@ -11,16 +11,30 @@ import { saveImageFile, deleteImageFile, ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES } 
 
 export type PropertyFormState = { error?: string; saved?: boolean };
 
+const timeString = z
+  .string()
+  .trim()
+  .refine((v) => v === '' || /^([01]\d|2[0-3]):[0-5]\d$/.test(v), 'Формат времени: ЧЧ:ММ')
+  .optional();
+
 const propertySchema = z.object({
   title: z.string().trim().min(3, 'Название: минимум 3 символа').max(150),
   description: z.string().trim().min(10, 'Описание: минимум 10 символов').max(5000),
   propertyType: z.string().min(2).max(50),
   pricePerNight: z.coerce.number().int().min(100, 'Минимальная цена — 100 ₽').max(10_000_000),
+  deposit: z.coerce.number().int().min(0).max(10_000_000).optional(),
+  minNights: z.coerce.number().int().min(1, 'Минимум 1 ночь').max(30),
   location: z.string().trim().min(2, 'Укажите локацию').max(100),
   address: z.string().trim().min(2, 'Укажите адрес').max(300),
   maxGuests: z.coerce.number().int().min(1).max(50),
   bedrooms: z.coerce.number().int().min(0).max(30),
+  bathrooms: z.coerce.number().int().min(1).max(20),
   area: z.coerce.number().int().min(0).max(10000).optional(),
+  distanceToBeach: z.coerce.number().int().min(0).max(100_000).optional(),
+  checkInTime: timeString,
+  checkOutTime: timeString,
+  allowPets: z.boolean(),
+  allowSmoking: z.boolean(),
   isPublished: z.boolean(),
 });
 
@@ -31,14 +45,47 @@ function parseForm(formData: FormData) {
     description: formData.get('description'),
     propertyType: formData.get('propertyType'),
     pricePerNight: formData.get('pricePerNight'),
+    deposit: formData.get('deposit') || undefined,
+    minNights: formData.get('minNights'),
     location: formData.get('location'),
     address: formData.get('address'),
     maxGuests: formData.get('maxGuests'),
     bedrooms: formData.get('bedrooms'),
+    bathrooms: formData.get('bathrooms'),
     area: formData.get('area') || undefined,
+    distanceToBeach: formData.get('distanceToBeach') || undefined,
+    checkInTime: String(formData.get('checkInTime') || '').trim(),
+    checkOutTime: String(formData.get('checkOutTime') || '').trim(),
+    allowPets: formData.get('allowPets') === 'on',
+    allowSmoking: formData.get('allowSmoking') === 'on',
     isPublished: formData.get('isPublished') === 'on',
   });
   return { parsed, amenities };
+}
+
+/** Общие поля для create/update — чтобы не дублировать объект данных. */
+function commonData(d: z.infer<typeof propertySchema>, amenities: string[]) {
+  return {
+    title: d.title,
+    description: d.description,
+    propertyType: d.propertyType,
+    pricePerNight: d.pricePerNight,
+    deposit: d.deposit || null,
+    minNights: d.minNights,
+    location: d.location,
+    address: d.address,
+    maxGuests: d.maxGuests,
+    bedrooms: d.bedrooms,
+    bathrooms: d.bathrooms,
+    area: d.area || null,
+    distanceToBeach: d.distanceToBeach || null,
+    checkInTime: d.checkInTime || null,
+    checkOutTime: d.checkOutTime || null,
+    allowPets: d.allowPets,
+    allowSmoking: d.allowSmoking,
+    amenities,
+    isPublished: d.isPublished,
+  };
 }
 
 async function uniqueSlug(title: string, excludeId?: string): Promise<string> {
@@ -69,18 +116,8 @@ export async function createPropertyAction(
   const slug = await uniqueSlug(d.title);
   const property = await prisma.property.create({
     data: {
-      title: d.title,
+      ...commonData(d, amenities),
       slug,
-      description: d.description,
-      propertyType: d.propertyType,
-      pricePerNight: d.pricePerNight,
-      location: d.location,
-      address: d.address,
-      maxGuests: d.maxGuests,
-      bedrooms: d.bedrooms,
-      area: d.area || null,
-      amenities,
-      isPublished: d.isPublished,
       ownerId,
     },
   });
@@ -112,21 +149,7 @@ export async function updatePropertyAction(
 
   await prisma.property.update({
     where: { id },
-    data: {
-      title: d.title,
-      slug,
-      description: d.description,
-      propertyType: d.propertyType,
-      pricePerNight: d.pricePerNight,
-      location: d.location,
-      address: d.address,
-      maxGuests: d.maxGuests,
-      bedrooms: d.bedrooms,
-      area: d.area || null,
-      amenities,
-      isPublished: d.isPublished,
-      ownerId,
-    },
+    data: commonData(d, amenities),
   });
 
   revalidatePath('/');

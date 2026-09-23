@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Search, MapPin, SlidersHorizontal, CalendarCheck, ShieldCheck, Zap } from 'lucide-react';
+import { Search, MapPin, SlidersHorizontal, CalendarCheck, ShieldCheck, Zap, ChevronDown } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
 import { PropertyCard } from '@/components/property-card';
 import { SiteHeader } from '@/components/site-header';
@@ -7,21 +7,39 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
-import { PROPERTY_TYPES } from '@/lib/constants';
+import { AMENITIES, PROPERTY_TYPES } from '@/lib/constants';
 import { isIsoDate, toISODate } from '@/lib/dates';
 import { computeAvailability, AVAILABILITY_HORIZON_DAYS } from '@/lib/availability';
 
 export const dynamic = 'force-dynamic';
 
 type Filters = {
-  location?: string;
+  q?: string;
   type?: string;
   minPrice?: string;
   maxPrice?: string;
   guests?: string;
   dateFrom?: string;
   dateTo?: string;
+  amenity?: string | string[];
+  pets?: string;
+  baths?: string;
+  beach?: string;
+  sort?: string;
 };
+
+const SORT_OPTIONS = [
+  { value: 'new', label: 'Сначала новые' },
+  { value: 'price_asc', label: 'Цена: сначала дешевле' },
+  { value: 'price_desc', label: 'Цена: сначала дороже' },
+];
+
+const BEACH_OPTIONS = [
+  { value: '', label: 'Любое' },
+  { value: '300', label: 'до 300 м' },
+  { value: '1000', label: 'до 1 км' },
+  { value: '3000', label: 'до 3 км' },
+];
 
 export default async function CatalogPage({
   searchParams,
@@ -30,9 +48,30 @@ export default async function CatalogPage({
 }) {
   const sp = await searchParams;
 
+  const q = sp.q?.trim();
+  const amenitiesSel = (Array.isArray(sp.amenity) ? sp.amenity : sp.amenity ? [sp.amenity] : [])
+    .filter((a) => (AMENITIES as readonly string[]).includes(a));
+  const baths = Number(sp.baths) || 0;
+  const beach = Number(sp.beach) || 0;
+  const orderBy =
+    sp.sort === 'price_asc'
+      ? { pricePerNight: 'asc' as const }
+      : sp.sort === 'price_desc'
+        ? { pricePerNight: 'desc' as const }
+        : { createdAt: 'desc' as const };
+
   const where = {
     isPublished: true as const,
-    ...(sp.location ? { location: { contains: sp.location, mode: 'insensitive' as const } } : {}),
+    ...(q
+      ? {
+          OR: [
+            { title: { contains: q, mode: 'insensitive' as const } },
+            { description: { contains: q, mode: 'insensitive' as const } },
+            { location: { contains: q, mode: 'insensitive' as const } },
+            { address: { contains: q, mode: 'insensitive' as const } },
+          ],
+        }
+      : {}),
     ...(sp.type ? { propertyType: sp.type } : {}),
     ...(sp.minPrice || sp.maxPrice
       ? {
@@ -43,6 +82,10 @@ export default async function CatalogPage({
         }
       : {}),
     ...(sp.guests ? { maxGuests: { gte: Number(sp.guests) || 1 } } : {}),
+    ...(baths >= 2 ? { bathrooms: { gte: baths } } : {}),
+    ...(beach > 0 ? { distanceToBeach: { lte: beach } } : {}),
+    ...(sp.pets === 'on' ? { allowPets: true } : {}),
+    ...(amenitiesSel.length > 0 ? { amenities: { hasEvery: amenitiesSel } } : {}),
     // «свободные даты»: исключаем объекты, у которых в диапазоне есть занятые дни
     ...(sp.dateFrom && sp.dateTo && isIsoDate(sp.dateFrom) && isIsoDate(sp.dateTo) && sp.dateFrom < sp.dateTo
       ? {
@@ -61,9 +104,12 @@ export default async function CatalogPage({
   const [properties, totalCount, locations] = await Promise.all([
     prisma.property.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy,
       take: 60,
-      include: { images: { orderBy: { sortOrder: 'asc' }, take: 1 } },
+      include: {
+        images: { orderBy: { sortOrder: 'asc' }, take: 1 },
+        reviews: { select: { rating: true } },
+      },
     }),
     prisma.property.count({ where: { isPublished: true } }),
     prisma.property.findMany({
@@ -152,10 +198,10 @@ export default async function CatalogPage({
           </p>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
             <div className="col-span-2 space-y-1.5">
-              <Label htmlFor="f-location">Локация</Label>
+              <Label htmlFor="f-q">Поиск</Label>
               <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input id="f-location" name="location" defaultValue={sp.location ?? ''} placeholder="Город или район" className="pl-9" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input id="f-q" name="q" defaultValue={sp.q ?? ''} placeholder="Вилла, бассейн, Чавенг…" className="pl-9" />
               </div>
             </div>
             <div className="space-y-1.5">
@@ -195,13 +241,89 @@ export default async function CatalogPage({
               </div>
             </div>
           </div>
-          <div className="mt-3 flex gap-2">
+
+          {/* Дополнительные фильтры (без JS — нативный details) */}
+          <details className="group mt-3 rounded-xl border bg-secondary/40 [&[open]]:shadow-inner">
+            <summary className="flex cursor-pointer select-none items-center gap-1.5 px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+              <ChevronDown className="h-4 w-4 transition-transform duration-200 group-open:rotate-180" />
+              Ещё фильтры
+              {(amenitiesSel.length > 0 || sp.pets === 'on' || baths >= 2 || beach > 0) && (
+                <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
+                  {[...amenitiesSel.length ? [amenitiesSel.length] : [], ...(sp.pets === 'on' ? ['питомцы'] : []), ...(baths >= 2 ? ['ванные'] : []), ...(beach > 0 ? ['пляж'] : [])].join(', ')}
+                </span>
+              )}
+            </summary>
+            <div className="space-y-4 border-t px-3 py-3">
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">Удобства</p>
+                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 xl:grid-cols-6">
+                  {AMENITIES.map((a) => (
+                    <label
+                      key={a}
+                      className="flex cursor-pointer items-center gap-2 rounded-md border bg-card px-2.5 py-2 text-sm transition-colors has-[:checked]:border-primary has-[:checked]:bg-accent/50"
+                    >
+                      <input
+                        type="checkbox"
+                        name="amenity"
+                        value={a}
+                        defaultChecked={amenitiesSel.includes(a)}
+                        className="h-4 w-4 accent-[hsl(var(--primary))]"
+                      />
+                      {a}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="f-baths">Ванных</Label>
+                  <Select id="f-baths" name="baths" defaultValue={sp.baths ?? ''}>
+                    <option value="">Любое</option>
+                    <option value="2">2+</option>
+                    <option value="3">3+</option>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="f-beach">До пляжа</Label>
+                  <Select id="f-beach" name="beach" defaultValue={sp.beach ?? ''}>
+                    {BEACH_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="f-pets">Питомцы</Label>
+                  <label
+                    className="flex h-10 cursor-pointer items-center gap-2 rounded-md border bg-card px-3 text-sm transition-colors has-[:checked]:border-primary has-[:checked]:bg-accent/50"
+                  >
+                    <input
+                      type="checkbox"
+                      name="pets"
+                      defaultChecked={sp.pets === 'on'}
+                      className="h-4 w-4 accent-[hsl(var(--primary))]"
+                    />
+                    Можно с животными
+                  </label>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <Button type="submit">
               <Search className="h-4 w-4" /> Найти
             </Button>
             <Button type="button" variant="ghost" asChild>
               <Link href="/">Сбросить</Link>
             </Button>
+            <div className="ml-auto w-full sm:w-56">
+                  <Label htmlFor="f-sort" className="sr-only">Сортировка</Label>
+                  <Select id="f-sort" name="sort" defaultValue={sp.sort ?? 'new'}>
+                    {SORT_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </Select>
+                </div>
           </div>
         </form>
 
@@ -214,28 +336,35 @@ export default async function CatalogPage({
           <>
             <p className="mb-3 text-sm text-muted-foreground">Найдено объектов: {properties.length}</p>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {properties.map((p, i) => (
-                <PropertyCard
-                  key={p.id}
-                  style={{ animationDelay: `${Math.min(i, 7) * 60}ms` }}
-                  className="animate-fade-in-up"
-                  property={{
-                    id: p.id,
-                    title: p.title,
-                    slug: p.slug,
-                    location: p.location,
-                    propertyType: p.propertyType,
-                    pricePerNight: p.pricePerNight,
-                    maxGuests: p.maxGuests,
-                    bedrooms: p.bedrooms,
-                    area: p.area,
-                    amenities: p.amenities,
-                    coverUrl: p.images[0]?.url ?? null,
-                    isNew: p.createdAt.getTime() > isNewThreshold,
-                    availability: computeAvailability(busyByProperty.get(p.id) ?? new Set()),
-                  }}
-                />
-              ))}
+              {properties.map((p, i) => {
+                const ratingSum = p.reviews.reduce((acc, r) => acc + r.rating, 0);
+                const rating = p.reviews.length > 0 ? Math.round((ratingSum / p.reviews.length) * 10) / 10 : null;
+                return (
+                  <PropertyCard
+                    key={p.id}
+                    style={{ animationDelay: `${Math.min(i, 7) * 60}ms` }}
+                    className="animate-fade-in-up"
+                    property={{
+                      id: p.id,
+                      title: p.title,
+                      slug: p.slug,
+                      location: p.location,
+                      propertyType: p.propertyType,
+                      pricePerNight: p.pricePerNight,
+                      maxGuests: p.maxGuests,
+                      bedrooms: p.bedrooms,
+                      bathrooms: p.bathrooms,
+                      area: p.area,
+                      amenities: p.amenities,
+                      coverUrl: p.images[0]?.url ?? null,
+                      isNew: p.createdAt.getTime() > isNewThreshold,
+                      availability: computeAvailability(busyByProperty.get(p.id) ?? new Set()),
+                      rating,
+                      reviewsCount: p.reviews.length,
+                    }}
+                  />
+                );
+              })}
             </div>
           </>
         )}

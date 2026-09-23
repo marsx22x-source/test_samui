@@ -16,11 +16,19 @@ export type PropertyFormDefaults = {
   description?: string;
   propertyType?: string;
   pricePerNight?: number;
+  deposit?: number | null;
+  minNights?: number;
   location?: string;
   address?: string;
   maxGuests?: number;
   bedrooms?: number;
+  bathrooms?: number;
   area?: number | null;
+  distanceToBeach?: number | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+  allowPets?: boolean;
+  allowSmoking?: boolean;
   amenities?: string[];
   isPublished?: boolean;
   ownerId?: string;
@@ -65,6 +73,16 @@ export function PropertyForm({
         </div>
 
         <div className="space-y-1.5">
+          <Label htmlFor="deposit">Залог при заезде, ₽</Label>
+          <Input id="deposit" name="deposit" type="number" min={0} defaultValue={d?.deposit ?? ''} placeholder="Не требуется" />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="minNights">Минимум ночей *</Label>
+          <Input id="minNights" name="minNights" type="number" min={1} max={30} required defaultValue={d?.minNights ?? 1} />
+        </div>
+
+        <div className="space-y-1.5">
           <Label htmlFor="location">Локация (город/район) *</Label>
           <Input id="location" name="location" required defaultValue={d?.location} placeholder="о. Самуи, Чавенг" />
         </div>
@@ -85,8 +103,18 @@ export function PropertyForm({
         </div>
 
         <div className="space-y-1.5">
+          <Label htmlFor="bathrooms">Ванных *</Label>
+          <Input id="bathrooms" name="bathrooms" type="number" min={1} max={20} required defaultValue={d?.bathrooms ?? 1} />
+        </div>
+
+        <div className="space-y-1.5">
           <Label htmlFor="area">Площадь, м²</Label>
           <Input id="area" name="area" type="number" min={0} defaultValue={d?.area ?? ''} />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="distanceToBeach">До пляжа, м</Label>
+          <Input id="distanceToBeach" name="distanceToBeach" type="number" min={0} defaultValue={d?.distanceToBeach ?? ''} placeholder="Не указано" />
         </div>
 
         <div className="space-y-1.5">
@@ -115,6 +143,28 @@ export function PropertyForm({
               {a}
             </label>
           ))}
+        </div>
+      </div>
+
+      <div className="space-y-2 rounded-xl border bg-secondary/30 p-4">
+        <Label>Правила жилья</Label>
+        <div className="grid gap-3 md:grid-cols-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="checkInTime">Заезд с</Label>
+            <Input id="checkInTime" name="checkInTime" type="time" defaultValue={d?.checkInTime ?? ''} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="checkOutTime">Выезд до</Label>
+            <Input id="checkOutTime" name="checkOutTime" type="time" defaultValue={d?.checkOutTime ?? ''} />
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 self-end rounded-md border bg-card px-3 py-2.5 text-sm transition-colors has-[:checked]:border-primary has-[:checked]:bg-accent/50">
+            <input type="checkbox" name="allowPets" defaultChecked={d?.allowPets ?? false} className="h-4 w-4 accent-[hsl(var(--primary))]" />
+            Можно с животными
+          </label>
+          <label className="flex cursor-pointer items-center gap-2 self-end rounded-md border bg-card px-3 py-2.5 text-sm transition-colors has-[:checked]:border-primary has-[:checked]:bg-accent/50">
+            <input type="checkbox" name="allowSmoking" defaultChecked={d?.allowSmoking ?? false} className="h-4 w-4 accent-[hsl(var(--primary))]" />
+            Курение разрешено
+          </label>
         </div>
       </div>
 

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { updatePropertyAction } from '@/actions/properties';
 import { PropertyForm } from '@/components/crm/property-form';
 import { ImageManager } from '@/components/crm/image-manager';
+import { ReviewsManager } from '@/components/crm/reviews-manager';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -16,7 +17,10 @@ export default async function EditPropertyPage({ params }: { params: Promise<{ i
   const [property, owners] = await Promise.all([
     prisma.property.findUnique({
       where: { id },
-      include: { images: { orderBy: { sortOrder: 'asc' }, select: { id: true, url: true } } },
+      include: {
+        images: { orderBy: { sortOrder: 'asc' }, select: { id: true, url: true } },
+        reviews: { orderBy: { createdAt: 'desc' } },
+      },
     }),
     prisma.user.findMany({ where: { role: 'OWNER' }, select: { id: true, name: true, email: true }, orderBy: { name: 'asc' } }),
   ]);
@@ -62,11 +66,19 @@ export default async function EditPropertyPage({ params }: { params: Promise<{ i
               description: property.description,
               propertyType: property.propertyType,
               pricePerNight: property.pricePerNight,
+              deposit: property.deposit,
+              minNights: property.minNights,
               location: property.location,
               address: property.address,
               maxGuests: property.maxGuests,
               bedrooms: property.bedrooms,
+              bathrooms: property.bathrooms,
               area: property.area,
+              distanceToBeach: property.distanceToBeach,
+              checkInTime: property.checkInTime,
+              checkOutTime: property.checkOutTime,
+              allowPets: property.allowPets,
+              allowSmoking: property.allowSmoking,
               amenities: property.amenities,
               isPublished: property.isPublished,
               ownerId: property.ownerId,
@@ -82,6 +94,28 @@ export default async function EditPropertyPage({ params }: { params: Promise<{ i
         </CardHeader>
         <CardContent>
           <ImageManager propertyId={property.id} images={property.images} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Отзывы гостей</CardTitle>
+          <CardDescription>
+            Отзывы добавляются вручную после модерации и сразу отображаются на странице объекта и в каталоге.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ReviewsManager
+            propertyId={property.id}
+            reviews={property.reviews.map((r) => ({
+              id: r.id,
+              authorName: r.authorName,
+              rating: r.rating,
+              text: r.text,
+              stayDate: r.stayDate ? r.stayDate.toISOString().slice(0, 10) : null,
+              createdAt: r.createdAt.toISOString(),
+            }))}
+          />
         </CardContent>
       </Card>
     </div>

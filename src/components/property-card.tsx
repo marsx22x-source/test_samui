@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Users, BedDouble, MapPin, ArrowUpRight, Ruler } from 'lucide-react';
+import { Users, BedDouble, Bath, MapPin, ArrowUpRight, Ruler, Star } from 'lucide-react';
 import { cn, formatPrice } from '@/lib/utils';
 import { AvailabilityBadge } from '@/components/availability-badge';
 import type { CardAvailability } from '@/lib/availability';
@@ -16,16 +16,19 @@ export type PropertyCardData = {
   pricePerNight: number;
   maxGuests: number;
   bedrooms: number;
+  bathrooms?: number;
   area?: number | null;
   amenities: string[];
   coverUrl: string | null;
   isNew?: boolean;
   availability?: CardAvailability;
+  rating?: number | null;
+  reviewsCount?: number;
 };
 
 /**
- * Карточка объекта в каталоге: индикатор доступности, ключевые удобства,
- * площадь и цена на фото. Hover — пружинный подъём (framer-motion).
+ * Карточка объекта в каталоге: индикатор доступности, рейтинг, ключевые
+ * удобства, площадь и цена на фото. Hover — пружинный подъём (framer-motion).
  */
 export function PropertyCard({
   property,
@@ -92,6 +95,14 @@ export function PropertyCard({
             <ArrowUpRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-all duration-300 group-hover:translate-x-0.5 group-hover:opacity-100" />
           </h3>
 
+          {property.rating != null && (property.reviewsCount ?? 0) > 0 && (
+            <p className="flex items-center gap-1.5 text-sm">
+              <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+              <span className="font-semibold">{property.rating.toFixed(1)}</span>
+              <span className="text-muted-foreground">· {property.reviewsCount} отзывов</span>
+            </p>
+          )}
+
           <p className="flex items-center gap-3 text-sm text-muted-foreground">
             <span className="flex items-center gap-1">
               <Users className="h-3.5 w-3.5" /> до {property.maxGuests}
@@ -99,6 +110,11 @@ export function PropertyCard({
             <span className="flex items-center gap-1">
               <BedDouble className="h-3.5 w-3.5" /> {property.bedrooms} спал.
             </span>
+            {property.bathrooms ? (
+              <span className="flex items-center gap-1">
+                <Bath className="h-3.5 w-3.5" /> {property.bathrooms}
+              </span>
+            ) : null}
             {property.area ? (
               <span className="flex items-center gap-1">
                 <Ruler className="h-3.5 w-3.5" /> {property.area} м²

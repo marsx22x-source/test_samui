@@ -44,30 +44,40 @@ model User {
 }
 
 model Property {
-  id            String           @id @default(cuid())
-  title         String
-  slug          String           @unique
-  description   String
-  pricePerNight Int // цена за ночь в рублях
-  propertyType  String // Апартаменты / Дом / Вилла / Студия ...
-  location      String // город / район (для фильтра)
-  address       String
-  maxGuests     Int
-  bedrooms      Int
-  area          Int? // м²
-  amenities     String[] // Wi-Fi, Бассейн, ...
-  isPublished   Boolean          @default(true)
-  ownerId       String
-  owner         User             @relation(fields: [ownerId], references: [id], onDelete: Restrict)
-  images        PropertyImage[]
-  calendarDays  CalendarDay[]
-  leads         Lead[]
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  id               String           @id @default(cuid())
+  title            String
+  slug             String           @unique
+  description      String
+  pricePerNight    Int // цена за ночь в рублях
+  deposit          Int? // залог/депозит при заезде (₽)
+  minNights        Int              @default(1) // минимальный срок, ночей
+  propertyType     String // Апартаменты / Дом / Вилла / Студия ...
+  location         String // город / район (для фильтра)
+  address          String
+  maxGuests        Int
+  bedrooms         Int
+  bathrooms        Int              @default(1)
+  area             Int? // м²
+  distanceToBeach  Int? // метров до пляжа
+  checkInTime      String? // "14:00"
+  checkOutTime     String? // "12:00"
+  allowPets        Boolean          @default(false)
+  allowSmoking     Boolean          @default(false)
+  amenities        String[] // Wi-Fi, Бассейн, ...
+  isPublished      Boolean          @default(true)
+  ownerId          String
+  owner            User             @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  images           PropertyImage[]
+  calendarDays     CalendarDay[]
+  leads            Lead[]
+  reviews          Review[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
   @@index([ownerId])
   @@index([location])
   @@index([isPublished])
+  @@index([pricePerNight])
 }
 
 model PropertyImage {
@@ -113,4 +123,18 @@ model Lead {
   @@index([propertyId])
   @@index([status])
   @@index([createdAt])
+}
+
+// Отзывы гостей: добавляет администратор в CRM (модерация вручную)
+model Review {
+  id         String    @id @default(cuid())
+  propertyId String
+  property   Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  authorName String
+  rating     Int // 1..5
+  text       String
+  stayDate   DateTime? @db.Date // месяц проживания (необязательно)
+  createdAt  DateTime  @default(now())
+
+  @@index([propertyId])
 }
