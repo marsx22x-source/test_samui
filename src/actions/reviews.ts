@@ -20,12 +20,29 @@ const reviewSchema = z.object({
 });
 
 async function revalidate(propertyId: string) {
+  await syncPropertyRating(propertyId);
   const property = await prisma.property.findUnique({ where: { id: propertyId }, select: { slug: true } });
   if (property) {
     revalidatePath('/');
     revalidatePath(`/property/${property.slug}`);
     revalidatePath(`/admin/properties/${propertyId}`);
   }
+}
+
+/** Пересчитать денормализованный рейтинг объекта по его отзывам. */
+async function syncPropertyRating(propertyId: string): Promise<void> {
+  const agg = await prisma.review.aggregate({
+    where: { propertyId },
+    _avg: { rating: true },
+    _count: { _all: true },
+  });
+  await prisma.property.update({
+    where: { id: propertyId },
+    data: {
+      ratingAvg: agg._avg.rating ?? null,
+      ratingCount: agg._count._all,
+    },
+  });
 }
 
 /** Добавить отзыв (только админ — ручная модерация). */

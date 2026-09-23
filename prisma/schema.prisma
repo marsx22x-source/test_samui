@@ -65,6 +65,8 @@ model Property {
   allowSmoking     Boolean          @default(false)
   amenities        String[] // Wi-Fi, Бассейн, ...
   isPublished      Boolean          @default(true)
+  ratingAvg        Float? // денормализованная средняя оценка (синхронизируется при изменении отзывов)
+  ratingCount      Int              @default(0)
   ownerId          String
   owner            User             @relation(fields: [ownerId], references: [id], onDelete: Restrict)
   images           PropertyImage[]

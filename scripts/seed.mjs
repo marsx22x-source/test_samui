@@ -144,6 +144,14 @@ async function main() {
             createdAt: new Date(Date.now() - (i + 1) * 7 * 86_400_000),
           })),
         });
+        const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
+        await prisma.property.update({
+          where: { id: property.id },
+          data: {
+            ratingAvg: sum / reviews.length,
+            ratingCount: reviews.length,
+          },
+        });
       }
       console.log(`✔ Демо-объект: ${d.title}`);
     }
